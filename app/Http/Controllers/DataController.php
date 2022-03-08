@@ -1,425 +1,332 @@
 <?php
 
-namespace App\Http\Controllers;
-
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+namespace EasyFie;
 
 
-class DataController extends Controller
+class EasyFie
 {
 
-    protected $user_id;
-
-    public function __construct()
+    public function getToken($user, $pass)
     {
-        $mydata = new AuthController();
-        $this->user_id = $mydata->me()->getData()->user_id;
+        if (!empty($user) and !empty($pass)) {
+            // login method
+            $usepass = array(
+                "username" => $user,
+                "password" => $pass
+            );
 
-        $this->middleware('auth:api', ['except' => ['getProduct']]);
-    }
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "https://www.easyfie.com/rest-api/login");
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $usepass);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            $token = curl_exec($ch);
+            curl_close($ch);
 
-
-    public function getProduct
-    (
-        $type,
-        $limit,
-        $order,
-        Request $request
-    )
-    {
-        $user_id = $this->user_id;
-        
-        if($type == 'all'){
-
-            if(!empty($limit) AND 
-            is_numeric($limit) AND 
-            !empty($order) AND 
-            $order == 'asc' OR 
-            $order == 'desc' 
-
-        ){
-            return DB::table('Wo_Custom_Store')
-                ->distinct()
-                ->select(
-                    'Wo_Products.id', 
-                    'Wo_Custom_Store.user_id',
-                    'Wo_Langs.english',
-                    'Wo_Products_Media.image', 
-                    'Wo_Custom_Store.logo', 
-                    'Wo_Custom_Store.banner', 
-                    'Wo_Products.name', 
-                    'Wo_Products.description', 
-                    'Wo_Products.category', 
-                    'Wo_Products.price', 
-                    'Wo_Products.remark', 
-                    'Wo_Products.expire'
-                )
-                ->leftJoin('Wo_Products', 'Wo_Custom_Store.user_id', '=', 'Wo_Products.user_id')
-                ->leftJoin('Wo_Service_Categories', 'Wo_Products.category', '=', 'Wo_Service_Categories.id')
-                ->leftJoin('Wo_Products_Categories', 'Wo_Products.category', '=', 'Wo_Products_Categories.id')
-
-                ->leftJoin('Wo_Langs', function($q) {
-                    $q->on('Wo_Products_Categories.lang_key', '=', 'Wo_Langs.id');
-                    $q->orOn('Wo_Langs.id', '=', 'Wo_Service_Categories.lang_key');
-                })
-
-                ->leftJoin('Wo_Products_Media', 'Wo_Products.id', '=', 'Wo_Products_Media.product_id')
-                ->where(['Wo_Custom_Store.user_id' => $user_id, 'Wo_Custom_Store.status' => 1])
-                ->groupBy('Wo_Products.id')
-                ->orderBy('id', $order)
-                ->paginate($limit);
-            }else{
-                return response()->json(['error' => 'Some Of Value Are Invalid..'], 404);
-            }
-        }elseif($type == 'products' OR $type == 'offer' OR $type == 'service' OR $type == 'shouts' OR $type == 'article'){
-            $products_type = ['products', 'offer', 'service', 'shouts'];
-
-            if(in_array($type, $products_type) AND $type !== 'article'){
-                
-
-                if(
-                    !empty($limit) AND 
-                    is_numeric($limit) AND 
-                    !empty($order) AND 
-                    $order == 'asc' OR 
-                    $order == 'desc' 
-                ){
-                    return DB::table('Wo_Custom_Store')
-                    ->distinct()
-                    ->select(
-                        'Wo_Products.id', 
-                        'Wo_Custom_Store.user_id',
-                        'Wo_Langs.english',
-                        'Wo_Products_Media.image', 
-                        'Wo_Custom_Store.logo', 
-                        'Wo_Custom_Store.banner', 
-                        'Wo_Products.name', 
-                        'Wo_Products.description', 
-                        'Wo_Products.category', 
-                        'Wo_Products.price', 
-                        'Wo_Products.remark', 
-                        'Wo_Products.expire'
-                    )
-                    ->leftJoin('Wo_Products', 'Wo_Custom_Store.user_id', '=', 'Wo_Products.user_id')
-                    ->leftJoin('Wo_Service_Categories', 'Wo_Products.category', '=', 'Wo_Service_Categories.id')
-                    ->leftJoin('Wo_Products_Categories', 'Wo_Products.category', '=', 'Wo_Products_Categories.id')
-
-                    ->leftJoin('Wo_Langs', function($q) {
-                        $q->on('Wo_Products_Categories.lang_key', '=', 'Wo_Langs.id');
-                        $q->orOn('Wo_Langs.id', '=', 'Wo_Service_Categories.lang_key');
-                    })
-
-                    ->leftJoin('Wo_Products_Media', 'Wo_Products.id', '=', 'Wo_Products_Media.product_id')
-                    ->where(['Wo_Products.remark' => $type == 'products' ? '' : $type , 'Wo_Custom_Store.user_id' => $user_id, 'Wo_Custom_Store.status' => 1])
-                    ->groupBy('Wo_Products.id')
-                    ->orderBy('id', $order)
-                    ->paginate($limit);
-                }else{
-                    return response()->json(['error' => 'Some Of Value Are Invalid..'], 404);
-                }
-            }elseif($type == 'article'){
-
-                if(
-                    !empty($limit) AND 
-                    is_numeric($limit) AND 
-                    !empty($order) AND 
-                    $order == 'asc' OR 
-                    $order == 'desc' 
-                ){
-                    return DB::table('Wo_Blog')
-                    ->select(
-                        'Wo_Blog.id', 
-                        'Wo_Blog.title', 
-                        'Wo_Blog.content', 
-                        'Wo_Blog.thumbnail', 
-                        'Wo_Blog.tags', 
-                        'Wo_Langs.english',
-                        'Wo_Cs_BlogCount.count as visited',
-                    )
-                    ->leftJoin('Wo_Blogs_Categories', 'Wo_Blog.category', '=', 'Wo_Blogs_Categories.id')
-                    ->leftJoin('Wo_Langs', 'Wo_Blogs_Categories.lang_key', '=', 'Wo_Langs.id')
-                    ->leftJoin('Wo_Cs_BlogCount', 'Wo_Cs_BlogCount.blog', '=', 'Wo_Blog.id')
-                    ->where(['Wo_Blog.user' => $user_id])
-                    ->orderBy('Wo_Blog.id', $order)
-                    ->paginate($limit);
-                }else{
-                    return response()->json(['error' => 'Some Of Value Are Invalid..'], 400);
-                }
-
-            }else{
-                return response()->json(['error' => 'Query Not Found'], 400);
-            }
-
-        }else{
-            return response()->json(['error' => 'Query Not Found'], 400);
+            return json_decode($token);
+        } else {
+            return json_encode(['error' => 'one or more fields are missing or invalid.']);
         }
     }
 
-    public function getSingleProduct
-    (
-        $type,
-        $id,
-        Request $request
-    ){
+    public function Me($token)
+    {
 
-        $user_id = $this->user_id;
+        if (!empty($token)) {
 
-        $products_type = ['products', 'offer', 'service', 'shouts'];
-
-        if(in_array($type, $products_type) AND $type !== 'article'){
-
-            if(!empty($type) AND !empty($id) AND is_numeric($id)){
-
-                $single = DB::table('Wo_Custom_Store')
-                ->distinct()
-                ->select(
-                    'Wo_Custom_Store.user_id',
-                    'Wo_Langs.english',
-                    'Wo_Products_Media.image',
-                    'Wo_Custom_Store.logo',
-                    'Wo_Custom_Store.banner',
-                    'Wo_Products.id',
-                    'Wo_Products.name',
-                    'Wo_Products.location',
-                    'Wo_Products.type',
-                    'Wo_Products.type2',
-                    'Wo_Products.description',
-                    'Wo_Products.category',
-                    'Wo_Products.price',
-                    'Wo_Products.remark',
-                    'Wo_Products.expire'
-                )
-                ->leftJoin('Wo_Products', 'Wo_Custom_Store.user_id', '=', 'Wo_Products.user_id')
-                ->leftJoin('Wo_Service_Categories', 'Wo_Products.category', '=', 'Wo_Service_Categories.id')
-                ->leftJoin('Wo_Products_Categories', 'Wo_Products.category', '=', 'Wo_Products_Categories.id')
-
-                ->leftJoin('Wo_Langs', function($q) {
-                    $q->on('Wo_Products_Categories.lang_key', '=', 'Wo_Langs.id');
-                    $q->orOn('Wo_Langs.id', '=', 'Wo_Service_Categories.lang_key');
-                })
-
-                ->leftJoin('Wo_Products_Media', 'Wo_Products.id', '=', 'Wo_Products_Media.product_id')
-                ->where([
-                    'Wo_Products.remark' => $type == 'products' ? '' : $type, 
-                    'Wo_Products.id' => $id,
-                    'Wo_Custom_Store.user_id' => $user_id, 
-                    'Wo_Custom_Store.status' => 1
-                ])
-                ->groupBy('Wo_Products.id')
-                ->first();
-
-                if(empty($single)){
-                    return response()->json(['error' => 'Product Id Doesn\'t Exists'], 404);
-                }
-
-
-                $images = DB::table('Wo_Products_Media')->where('product_id', $id)->get();
-
-                $categories_rand = DB::table('Wo_Products')->where('category', $single->category)->limit(4)->get();
-                
-                $data = [
-                    'data' => $single,
-                    'images' => $images,
-                    'related' => $categories_rand
-                ];
-
-                return response()->json($data);
-
-            }else{
-                return response()->json(['error' => 'Some Of Value Are Invalid..'], 404);
-            }
-        }elseif($type == 'article'){
-            if(!empty($type) AND !empty($id) AND is_numeric($id)){
-
-                 $single = DB::table('Wo_Blog')
-                ->select(
-                    'Wo_Blog.title as name',
-                    'Wo_Blog.content as description',
-                    'Wo_Blog.thumbnail as image',
-                    'Wo_Blog.tags',
-                    'Wo_Blog.category',
-                    'Wo_Langs.english',
-                    'Wo_Custom_Store.logo'
-                )
-                ->leftJoin('Wo_Blogs_Categories', 'Wo_Blog.category', '=', 'Wo_Blogs_Categories.id')
-                ->leftJoin('Wo_Langs', 'Wo_Blogs_Categories.lang_key', '=', 'Wo_Langs.id')
-                ->leftJoin('Wo_Custom_Store', 'Wo_Blog.user', '=', 'Wo_Custom_Store.user_id')
-                ->where([
-                    'Wo_Blog.id' => $id,
-                    'Wo_Custom_Store.user_id' => $user_id, 
-                    'Wo_Custom_Store.status' => 1
-                ])
-                ->first();
-                
-
-                if(empty($single)){
-                    return response()->json(['error' => 'Article Id Doesn\'t Exists'], 404);
-                }
-
-
-                $comments = DB::table('Wo_Cs_Blog_Comments')
-                ->where([
-                    'blog_id' => $id,
-                    'user_id' => $user_id, 
-                    'status' => 1
-                ])->orderby('parent_id', 'asc')->get();
-
-
-                $blog_count = DB::table('Wo_Cs_BlogCount')->select('count')->where('blog', $id)->first();
-                
-
-
-                $categories_rand = DB::table('Wo_Blog')->where('category', $single->category)->limit(4)->get();
-
-
-
-
-                $data = [
-                    'data' => $single,
-                    'comments' => $comments,
-                    'visited' => $blog_count,
-                    'categories' => $categories_rand,
-                ];
-                
-
-                return response()->json($data);
-            }
+            //view profile data
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "https://www.easyfie.com/rest-api/data-api/me");
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Authorization: Bearer ' . $token
+            ));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            $me = curl_exec($ch);
+            curl_close($ch);
+            return json_decode($me);
+        } else {
+            return json_encode(['error' => 'one or more fields are missing or invalid.']);
         }
     }
 
 
-    public function MyAllCategories()
+    public function WebData($token)
     {
-        $user_id = $this->user_id;
+        if (!empty($token)) {
 
-        return DB::table('Wo_Custom_Store')
-        ->distinct()
-        ->select(
-            'Wo_Custom_Store.user_id',
-            'Wo_Langs.english',
-            'Wo_Products.id',
-            'Wo_Products.category'
-        )
-        ->leftJoin('Wo_Products', 'Wo_Custom_Store.user_id', '=', 'Wo_Products.user_id')
-        ->leftJoin('Wo_Service_Categories', 'Wo_Products.category', '=', 'Wo_Service_Categories.id')
-        ->leftJoin('Wo_Products_Categories', 'Wo_Products.category', '=', 'Wo_Products_Categories.id')
+            //header data
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "https://www.easyfie.com/rest-api/data-api/web-data");
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Authorization: Bearer ' . $token
+            ));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            $web_data = curl_exec($ch);
+            curl_close($ch);
 
-        ->leftJoin('Wo_Langs', function($q) {
-            $q->on('Wo_Products_Categories.lang_key', '=', 'Wo_Langs.id');
-            $q->orOn('Wo_Langs.id', '=', 'Wo_Service_Categories.lang_key');
-        })
-        ->where(['Wo_Custom_Store.user_id' => $user_id, 'Wo_Custom_Store.status' => 1])
-        ->groupBy('Wo_Langs.english')
-        ->orderBy('Wo_Langs.english', 'asc')
-        ->get();
-    }
-
-    public function categoriesSingle($single, $limit = null)
-    {
-        $user_id = $this->user_id;
-
-        if(!empty($single) AND !empty($limit) AND is_numeric($limit)){
-            return DB::table('Wo_Custom_Store')
-            ->distinct()
-            ->select(
-                'Wo_Products.id', 
-                'Wo_Custom_Store.user_id',
-                'Wo_Langs.english',
-                'Wo_Products_Media.image', 
-                'Wo_Custom_Store.logo', 
-                'Wo_Custom_Store.banner', 
-                'Wo_Products.name', 
-                'Wo_Products.description', 
-                'Wo_Products.category', 
-                'Wo_Products.price', 
-                'Wo_Products.remark', 
-                'Wo_Products.expire'
-            )
-            ->leftJoin('Wo_Products', 'Wo_Custom_Store.user_id', '=', 'Wo_Products.user_id')
-            ->leftJoin('Wo_Service_Categories', 'Wo_Products.category', '=', 'Wo_Service_Categories.id')
-            ->leftJoin('Wo_Products_Categories', 'Wo_Products.category', '=', 'Wo_Products_Categories.id')
-
-            ->leftJoin('Wo_Langs', function($q) {
-                $q->on('Wo_Products_Categories.lang_key', '=', 'Wo_Langs.id');
-                $q->orOn('Wo_Langs.id', '=', 'Wo_Service_Categories.lang_key');
-            })
-
-            ->leftJoin('Wo_Products_Media', 'Wo_Products.id', '=', 'Wo_Products_Media.product_id')
-            ->where(['Wo_Custom_Store.user_id' => $user_id, 'Wo_Custom_Store.status' => 1])
-            ->where('Wo_Products.category', $single)
-            ->groupBy('Wo_Products.id')
-            ->paginate($limit);
+            return json_decode($web_data);
+        } else {
+            return json_encode(['error' => 'one or more fields are missing or invalid.']);
         }
-
-        return response()->json(['error' => 'Some Of Value Are Invalid..'], 404);
-
     }
 
 
-    public function search($search, $limit = null)
+    public function getAllCategories($token)
     {
-        $user_id = $this->user_id;
+        if (!empty($token)) {
 
-        if(!empty($search) AND !empty($limit) AND is_numeric($limit)){
-            return DB::table('Wo_Custom_Store')
-            ->distinct()
-            ->select(
-                'Wo_Products.id', 
-                'Wo_Custom_Store.user_id',
-                'Wo_Langs.english',
-                'Wo_Products_Media.image', 
-                'Wo_Custom_Store.logo', 
-                'Wo_Custom_Store.banner', 
-                'Wo_Products.name', 
-                'Wo_Products.description', 
-                'Wo_Products.category', 
-                'Wo_Products.price', 
-                'Wo_Products.remark', 
-                'Wo_Products.expire'
-            )
-            ->leftJoin('Wo_Products', 'Wo_Custom_Store.user_id', '=', 'Wo_Products.user_id')
-            ->leftJoin('Wo_Service_Categories', 'Wo_Products.category', '=', 'Wo_Service_Categories.id')
-            ->leftJoin('Wo_Products_Categories', 'Wo_Products.category', '=', 'Wo_Products_Categories.id')
-
-            ->leftJoin('Wo_Langs', function($q) {
-                $q->on('Wo_Products_Categories.lang_key', '=', 'Wo_Langs.id');
-                $q->orOn('Wo_Langs.id', '=', 'Wo_Service_Categories.lang_key');
-            })
-
-            ->leftJoin('Wo_Products_Media', 'Wo_Products.id', '=', 'Wo_Products_Media.product_id')
-            ->where(['Wo_Custom_Store.user_id' => $user_id, 'Wo_Custom_Store.status' => 1])
-            ->where('Wo_Products.name', 'like', '%' . $search . '%')
-            ->groupBy('Wo_Products.id')
-            ->paginate($limit);
+            //category for menu
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "https://www.easyfie.com/rest-api/data-api/categories");
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Authorization: Bearer ' . $token
+            ));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            $categories = curl_exec($ch);
+            curl_close($ch);
+            return json_decode($categories);
+        } else {
+            return json_encode(['error' => 'one or more fields are missing or invalid.']);
         }
-
-        return response()->json(['error' => 'Some Of Value Are Invalid..'], 404);
     }
 
-    public function color()
+
+    public function getThemesColor($token)
     {
-        $user_id = $this->user_id;
 
-        $color = DB::table('Wo_Cs_Themes_Colors')->where('user_id', $user_id)->first();
-        return response()->json($color);
+        if (!empty($token)) {
+
+            //themes-color
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "https://www.easyfie.com/rest-api/data-api/themes-color");
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Authorization: Bearer ' . $token
+            ));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            $themes_color = curl_exec($ch);
+            curl_close($ch);
+            return json_decode($themes_color);
+        } else {
+            return json_encode(['error' => 'one or more fields are missing or invalid.']);
+        }
     }
 
-    public function pages()
+
+    public function generatedPages($token)
     {
-        $user_id = $this->user_id;
 
-        $pages = DB::table('Wo_Cs_Generated_Pages')->where('user_id', $user_id)->get();
-        return response()->json($pages);
+        if (!empty($token)) {
+
+            //generated-pages
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "https://www.easyfie.com/rest-api/data-api/generated-pages");
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Authorization: Bearer ' . $token
+            ));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            $generated_page = curl_exec($ch);
+            curl_close($ch);
+            return json_decode($generated_page);
+        } else {
+            return json_encode(['error' => 'one or more fields are missing or invalid.']);
+        }
     }
 
-    public function meta()
+
+    public function generatedPageSingle($token, $slug)
     {
-        $user_id = $this->user_id;
 
-        $meta = DB::table('Wo_Cs_Meta')->where('user_id', $user_id)->first();
-        return response()->json($meta);
+        if (!empty($token) and !empty($slug)) {
+
+            //generated-pages
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "https://www.easyfie.com/rest-api/data-api/generated-pages/$slug");
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Authorization: Bearer ' . $token
+            ));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            $single_page = curl_exec($ch);
+            curl_close($ch);
+            return json_decode($single_page);
+        } else {
+            return json_encode(['error' => 'one or more fields are missing or invalid.']);
+        }
     }
 
 
+    public function getMetaData($token)
+    {
+        if (!empty($token)) {
+
+            //meta-data
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "https://www.easyfie.com/rest-api/data-api/meta-data");
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Authorization: Bearer ' . $token
+            ));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            $meta = curl_exec($ch);
+            curl_close($ch);
+            return json_decode($meta);
+        } else {
+            return json_encode(['error' => 'one or more fields are missing or invalid.']);
+        }
+    }
+
+
+    public function ProductsOrBlogs($token, $type, $limit, $order, $paginate = 1)
+    {
+
+        $check_types = ['products', 'offer', 'service', 'shouts', 'article'];
+
+        if (
+            !empty($token) and
+            !empty($type) and
+            !empty($limit) and
+            !empty($order) and
+            in_array($type, $check_types) and
+            $order == 'asc' or
+            $order == 'desc'
+        ) {
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "https://www.easyfie.com/rest-api/data-api/type/$type/limit/$limit/order/$order/?page=$paginate");
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Authorization: Bearer ' . $token
+            ));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            $productsOrblogs = curl_exec($ch);
+            curl_close($ch);
+
+            return json_decode($productsOrblogs);
+        } else {
+            return json_encode(['error' => 'one or more fields are missing or invalid.']);
+        }
+    }
+
+
+    public function SingleData($token, $type, $id)
+    {
+
+        $check_types = ['products', 'offer', 'service', 'shouts', 'article'];
+
+        if (
+            !empty($token) and
+            !empty($type) and
+            !empty($id) and
+            in_array($type, $check_types)
+        ) {
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "https://www.easyfie.com/rest-api/data-api/type/$type/id/$id");
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Authorization: Bearer ' . $token
+            ));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            $data = curl_exec($ch);
+            curl_close($ch);
+
+            return json_decode($data);
+        } else {
+            return json_encode(['error' => 'one or more fields are missing or invalid.']);
+        }
+    }
+
+
+    public function singleCategories($token, $category_id, $limit, $paginate = 1)
+    {
+
+        if (
+            !empty($token) and
+            !empty($category_id) and
+            !empty($limit) 
+        ) {
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "https://www.easyfie.com/rest-api/data-api/categories/$category_id/limit/$limit?page=$paginate");
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Authorization: Bearer ' . $token
+            ));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            $categories = curl_exec($ch);
+            curl_close($ch);
+
+            return json_decode($categories);
+        } else {
+            return json_encode(['error' => 'one or more fields are missing or invalid.']);
+        }
+    }
+
+
+    public function Search($token, $type, $keyword, $limit)
+    {
+
+        $check_types = ['products', 'offer', 'service', 'shouts', 'article'];
+
+        if (
+            !empty($token) and
+            !empty($type) and
+            !empty($keyword) and
+            !empty($limit) and
+            in_array($type, $check_types)
+        ) {
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "https://www.easyfie.com/rest-api/data-api/type/$type/search/$keyword/limit/$limit");
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Authorization: Bearer ' . $token
+            ));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            $data = curl_exec($ch);
+            curl_close($ch);
+
+            return json_decode($data);
+        } else {
+            return json_encode(['error' => 'one or more fields are missing or invalid.']);
+        }
+    }
+
+
+    public function Orders($token, $postRequest)
+    {
+        if (
+            !empty($token) and
+            !empty($postRequest)
+        ) {
+            $postRequest = http_build_query($postRequest);
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "https://www.easyfie.com/rest-api/data-api/orders");
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $postRequest);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Authorization: Bearer ' . $token
+            ));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            $order = curl_exec($ch);
+            curl_close($ch);
+            
+            return json_decode($order);
+        } else {
+            return json_encode(['error' => 'one or more fields are missing or invalid.']);
+        }
+    }
+
+    public function notify($token)
+    {
+        if (
+            !empty($token)
+        ) {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "https://www.easyfie.com/rest-api/data-api/notify");
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Authorization: Bearer ' . $token
+            ));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            $notify = curl_exec($ch);
+            curl_close($ch);
+
+            return json_decode($notify);
+        }else {
+            return json_encode(['error' => 'one or more fields are missing or invalid.']);
+        }
+    }
 }
